@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/andresetevejob/atelier-devops/issues"
   },
-  "homepage": "https://github.com/andresetevejob/atelier-devops#readme"
+  "homepage": "https://github.com/andresetevejob/atelier-devops#readme",
+  "devDependencies": {
+    "html-validator": "^6.0.1"
+  }
 }
