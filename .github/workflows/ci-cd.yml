@@ -1,0 +1,82 @@
+name: CI/CD Pipeline with Email Notifications
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install html-validator
+        run: npm install html-validator -g
+
+      - name: Validate HTML
+        run: |
+          html-validator --file index.html --verbose
+        continue-on-error: false # Force l'échec du workflow si la validation échoue
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always() # S'exécute même si les jobs précédents échouent
+    steps:
+      - name: Determine workflow status
+        id: check_status
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "WORKFLOW_STATUS=success" >> $GITHUB_ENV
+          else
+            echo "WORKFLOW_STATUS=failure" >> $GITHUB_ENV
+          fi
+
+      - name: Send success email
+        if: env.WORKFLOW_STATUS == 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Déploiement réussi 🚀"
+          body: "Le déploiement de l'application sur GitHub Pages a réussi !"
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.SMTP_USER }}
+
+      - name: Send failure email
+        if: env.WORKFLOW_STATUS == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Déploiement échoué ❌"
+          body: "Le déploiement de l'application sur GitHub Pages a échoué. Veuillez vérifier les logs."
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.SMTP_USER }}
